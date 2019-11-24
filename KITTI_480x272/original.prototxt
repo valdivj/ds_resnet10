@@ -1,0 +1,1049 @@
+name: "DetectNet"
+layer {
+  name: "train#_data"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TRAIN
+  }
+  data_param {
+    source: "examples/kitti/kitti_train_images.lmdb"
+    batch_size: 10
+    backend: LMDB
+  }
+}
+layer {
+  name: "train_label"
+  type: "Data"
+  top: "label"
+  include {
+    phase: TRAIN
+  }
+  data_param {
+    source: "examples/kitti/kitti_train_labels.lmdb"
+    batch_size: 10
+    backend: LMDB
+  }
+}
+layer {
+  name: "val_data"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  data_param {
+    source: "examples/kitti/kitti_test_images.lmdb"
+    batch_size: 6
+    backend: LMDB
+  }
+}
+layer {
+  name: "val_label"
+  type: "Data"
+  top: "label"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  data_param {
+    source: "examples/kitti/kitti_test_labels.lmdb"
+    batch_size: 6
+    backend: LMDB
+  }
+}
+layer {
+  name: "deploy_data"
+  type: "Input"
+  top: "data"
+  include {
+    phase: TEST
+    not_stage: "val"
+  }
+  input_param {
+    shape {
+      dim: 1
+      dim: 3
+      dim: 272
+      dim: 480
+    }
+  }
+}
+layer {
+  name: "train_transform"
+  type: "DetectNetTransformation"
+  bottom: "data"
+  bottom: "label"
+  top: "transformed_data"
+  top: "transformed_label"
+  include {
+    phase: TRAIN
+  }
+  transform_param {
+    mean_value: 127.0
+  }
+  detectnet_groundtruth_param {
+    stride: 16
+    scale_cvg: 0.40000000596
+    gridbox_type: GRIDBOX_MIN
+    min_cvg_len: 20
+    coverage_type: RECTANGULAR
+    image_size_x: 480
+    image_size_y: 272
+    obj_norm: true
+    crop_bboxes: false
+    object_class {
+      src: 1
+      dst: 0
+    }
+    object_class {
+      src: 12
+      dst: 1
+    }
+    object_class {
+      src: 8
+      dst: 2
+    }
+    object_class {
+      src: 2
+      dst: 3
+    }
+  }
+  detectnet_augmentation_param {
+    crop_prob: 1.0
+    shift_x: 32
+    shift_y: 32
+    scale_prob: 0.40000000596
+    scale_min: 0.800000011921
+    scale_max: 1.20000004768
+    flip_prob: 0.5
+    rotation_prob: 0.0
+    max_rotate_degree: 5.0
+    hue_rotation_prob: 0.800000011921
+    hue_rotation: 30.0
+    desaturation_prob: 0.800000011921
+    desaturation_max: 0.800000011921
+  }
+}
+layer {
+  name: "val_transform"
+  type: "DetectNetTransformation"
+  bottom: "data"
+  bottom: "label"
+  top: "transformed_data"
+  top: "transformed_label"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  transform_param {
+    mean_value: 127.0
+  }
+  detectnet_groundtruth_param {
+    stride: 16
+    scale_cvg: 0.40000000596
+    gridbox_type: GRIDBOX_MIN
+    min_cvg_len: 20
+    coverage_type: RECTANGULAR
+    image_size_x: 480
+    image_size_y: 272
+    obj_norm: true
+    crop_bboxes: false
+    object_class {
+      src: 1
+      dst: 0
+    }
+    object_class {
+      src: 12
+      dst: 1
+    }
+    object_class {
+      src: 8
+      dst: 2
+    }
+    object_class {
+      src: 2
+      dst: 3
+    }
+  }
+}
+layer {
+  name: "deploy_transform"
+  type: "Power"
+  bottom: "data"
+  top: "transformed_data"
+  include {
+    phase: TEST
+    not_stage: "val"
+  }
+  power_param {
+    shift: -127.0
+  }
+}
+layer {
+  name: "slice-label"
+  type: "Slice"
+  bottom: "transformed_label"
+  top: "foreground-label"
+  top: "slice-bbox"
+  top: "size-label"
+  top: "obj-label"
+  top: "slice-coverage"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  slice_param {
+    slice_dim: 1
+    slice_point: 2
+    slice_point: 4
+    slice_point: 6
+    slice_point: 8
+  }
+}
+layer {
+  name: "coverage-block"
+  type: "Concat"
+  bottom: "foreground-label"
+  bottom: "foreground-label"
+  bottom: "foreground-label"
+  bottom: "foreground-label"
+  bottom: "foreground-label"
+  bottom: "foreground-label"
+  bottom: "foreground-label"
+  bottom: "foreground-label"
+  top: "coverage-block"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  concat_param {
+    concat_dim: 1
+  }
+}
+layer {
+  name: "size-block"
+  type: "Concat"
+  bottom: "size-label"
+  bottom: "size-label"
+  bottom: "size-label"
+  bottom: "size-label"
+  bottom: "size-label"
+  bottom: "size-label"
+  bottom: "size-label"
+  bottom: "size-label"
+  top: "size-block"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  concat_param {
+    concat_dim: 1
+  }
+}
+layer {
+  name: "obj-block"
+  type: "Concat"
+  bottom: "obj-label"
+  bottom: "obj-label"
+  bottom: "obj-label"
+  bottom: "obj-label"
+  bottom: "obj-label"
+  bottom: "obj-label"
+  bottom: "obj-label"
+  bottom: "obj-label"
+  top: "obj-block"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  concat_param {
+    concat_dim: 1
+  }
+}
+layer {
+  name: "bbox-label"
+  type: "Concat"
+  bottom: "slice-bbox"
+  bottom: "slice-bbox"
+  bottom: "slice-bbox"
+  bottom: "slice-bbox"
+  bottom: "slice-bbox"
+  bottom: "slice-bbox"
+  bottom: "slice-bbox"
+  bottom: "slice-bbox"
+  top: "bbox-label"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  concat_param {
+    concat_dim: 1
+  }
+}
+layer {
+  name: "coverage-label"
+  type: "Concat"
+  bottom: "slice-coverage"
+  top: "coverage-label"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  concat_param {
+    concat_dim: 1
+  }
+}
+layer {
+  name: "bb-label-norm"
+  type: "Eltwise"
+  bottom: "bbox-label"
+  bottom: "size-block"
+  top: "bbox-label-norm"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  eltwise_param {
+    operation: PROD
+  }
+}
+layer {
+  name: "bb-obj-norm"
+  type: "Eltwise"
+  bottom: "bbox-label-norm"
+  bottom: "obj-block"
+  top: "bbox-obj-label-norm"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  eltwise_param {
+    operation: PROD
+  }
+}
+layer {
+  name: "conv1"
+  type: "Convolution"
+  bottom: "transformed_data"
+  top: "conv1"
+  convolution_param {
+    num_output: 32
+    pad_h: 3
+    pad_w: 3
+    kernel_h: 7
+    kernel_w: 7
+    stride_h: 2
+    stride_w: 2
+  }
+}
+layer {
+  name: "bn_conv1"
+  type: "Scale"
+  bottom: "conv1"
+  top: "bn_conv1"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "activation_1/Relu"
+  type: "ReLU"
+  bottom: "bn_conv1"
+  top: "activation_1/Relu"
+}
+layer {
+  name: "block_1a_conv_1"
+  type: "Convolution"
+  bottom: "activation_1/Relu"
+  top: "block_1a_conv_1"
+  convolution_param {
+    num_output: 64
+    pad_h: 1
+    pad_w: 1
+    kernel_h: 3
+    kernel_w: 3
+    stride_h: 2
+    stride_w: 2
+  }
+}
+layer {
+  name: "block_1a_conv_shortcut"
+  type: "Convolution"
+  bottom: "activation_1/Relu"
+  top: "block_1a_conv_shortcut"
+  convolution_param {
+    num_output: 64
+    pad_h: 0
+    pad_w: 0
+    kernel_h: 1
+    kernel_w: 1
+    stride_h: 2
+    stride_w: 2
+  }
+}
+layer {
+  name: "block_1a_bn_1"
+  type: "Scale"
+  bottom: "block_1a_conv_1"
+  top: "block_1a_bn_1"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "block_1a_bn_shortcut"
+  type: "Scale"
+  bottom: "block_1a_conv_shortcut"
+  top: "block_1a_bn_shortcut"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "activation_2/Relu"
+  type: "ReLU"
+  bottom: "block_1a_bn_1"
+  top: "activation_2/Relu"
+}
+layer {
+  name: "block_1a_conv_2"
+  type: "Convolution"
+  bottom: "activation_2/Relu"
+  top: "block_1a_conv_2"
+  convolution_param {
+    num_output: 64
+    pad_h: 1
+    pad_w: 1
+    kernel_h: 3
+    kernel_w: 3
+    stride_h: 1
+    stride_w: 1
+  }
+}
+layer {
+  name: "block_1a_bn_2"
+  type: "Scale"
+  bottom: "block_1a_conv_2"
+  top: "block_1a_bn_2"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "add_1"
+  type: "Eltwise"
+  bottom: "block_1a_bn_2"
+  bottom: "block_1a_bn_shortcut"
+  top: "add_1"
+  eltwise_param {
+    operation: SUM
+  }
+}
+layer {
+  name: "activation_3/Relu"
+  type: "ReLU"
+  bottom: "add_1"
+  top: "activation_3/Relu"
+}
+layer {
+  name: "block_2a_conv_1"
+  type: "Convolution"
+  bottom: "activation_3/Relu"
+  top: "block_2a_conv_1"
+  convolution_param {
+    num_output: 128
+    pad_h: 1
+    pad_w: 1
+    kernel_h: 3
+    kernel_w: 3
+    stride_h: 2
+    stride_w: 2
+  }
+}
+layer {
+  name: "block_2a_conv_shortcut"
+  type: "Convolution"
+  bottom: "activation_3/Relu"
+  top: "block_2a_conv_shortcut"
+  convolution_param {
+    num_output: 128
+    pad_h: 0
+    pad_w: 0
+    kernel_h: 1
+    kernel_w: 1
+    stride_h: 2
+    stride_w: 2
+  }
+}
+layer {
+  name: "block_2a_bn_1"
+  type: "Scale"
+  bottom: "block_2a_conv_1"
+  top: "block_2a_bn_1"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "block_2a_bn_shortcut"
+  type: "Scale"
+  bottom: "block_2a_conv_shortcut"
+  top: "block_2a_bn_shortcut"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "activation_4/Relu"
+  type: "ReLU"
+  bottom: "block_2a_bn_1"
+  top: "activation_4/Relu"
+}
+layer {
+  name: "block_2a_conv_2"
+  type: "Convolution"
+  bottom: "activation_4/Relu"
+  top: "block_2a_conv_2"
+  convolution_param {
+    num_output: 128
+    pad_h: 1
+    pad_w: 1
+    kernel_h: 3
+    kernel_w: 3
+    stride_h: 1
+    stride_w: 1
+  }
+}
+layer {
+  name: "block_2a_bn_2"
+  type: "Scale"
+  bottom: "block_2a_conv_2"
+  top: "block_2a_bn_2"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "add_2"
+  type: "Eltwise"
+  bottom: "block_2a_bn_2"
+  bottom: "block_2a_bn_shortcut"
+  top: "add_2"
+  eltwise_param {
+    operation: SUM
+  }
+}
+layer {
+  name: "activation_5/Relu"
+  type: "ReLU"
+  bottom: "add_2"
+  top: "activation_5/Relu"
+}
+layer {
+  name: "block_3a_conv_1"
+  type: "Convolution"
+  bottom: "activation_5/Relu"
+  top: "block_3a_conv_1"
+  convolution_param {
+    num_output: 232
+    pad_h: 1
+    pad_w: 1
+    kernel_h: 3
+    kernel_w: 3
+    stride_h: 2
+    stride_w: 2
+  }
+}
+layer {
+  name: "block_3a_conv_shortcut"
+  type: "Convolution"
+  bottom: "activation_5/Relu"
+  top: "block_3a_conv_shortcut"
+  convolution_param {
+    num_output: 200
+    pad_h: 0
+    pad_w: 0
+    kernel_h: 1
+    kernel_w: 1
+    stride_h: 2
+    stride_w: 2
+  }
+}
+layer {
+  name: "block_3a_bn_1"
+  type: "Scale"
+  bottom: "block_3a_conv_1"
+  top: "block_3a_bn_1"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "block_3a_bn_shortcut"
+  type: "Scale"
+  bottom: "block_3a_conv_shortcut"
+  top: "block_3a_bn_shortcut"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "activation_6/Relu"
+  type: "ReLU"
+  bottom: "block_3a_bn_1"
+  top: "activation_6/Relu"
+}
+layer {
+  name: "block_3a_conv_2"
+  type: "Convolution"
+  bottom: "activation_6/Relu"
+  top: "block_3a_conv_2"
+  convolution_param {
+    num_output: 200
+    pad_h: 1
+    pad_w: 1
+    kernel_h: 3
+    kernel_w: 3
+    stride_h: 1
+    stride_w: 1
+  }
+}
+layer {
+  name: "block_3a_bn_2"
+  type: "Scale"
+  bottom: "block_3a_conv_2"
+  top: "block_3a_bn_2"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "add_3"
+  type: "Eltwise"
+  bottom: "block_3a_bn_2"
+  bottom: "block_3a_bn_shortcut"
+  top: "add_3"
+  eltwise_param {
+    operation: SUM
+  }
+}
+layer {
+  name: "activation_7/Relu"
+  type: "ReLU"
+  bottom: "add_3"
+  top: "activation_7/Relu"
+}
+layer {
+  name: "block_4a_conv_1"
+  type: "Convolution"
+  bottom: "activation_7/Relu"
+  top: "block_4a_conv_1"
+  convolution_param {
+    num_output: 152
+    pad_h: 1
+    pad_w: 1
+    kernel_h: 3
+    kernel_w: 3
+    stride_h: 1
+    stride_w: 1
+  }
+}
+layer {
+  name: "block_4a_conv_shortcut"
+  type: "Convolution"
+  bottom: "activation_7/Relu"
+  top: "block_4a_conv_shortcut"
+  convolution_param {
+    num_output: 176
+    pad_h: 0
+    pad_w: 0
+    kernel_h: 1
+    kernel_w: 1
+    stride_h: 1
+    stride_w: 1
+  }
+}
+layer {
+  name: "block_4a_bn_1"
+  type: "Scale"
+  bottom: "block_4a_conv_1"
+  top: "block_4a_bn_1"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "block_4a_bn_shortcut"
+  type: "Scale"
+  bottom: "block_4a_conv_shortcut"
+  top: "block_4a_bn_shortcut"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "activation_8/Relu"
+  type: "ReLU"
+  bottom: "block_4a_bn_1"
+  top: "activation_8/Relu"
+}
+layer {
+  name: "block_4a_conv_2"
+  type: "Convolution"
+  bottom: "activation_8/Relu"
+  top: "block_4a_conv_2"
+  convolution_param {
+    num_output: 176
+    pad_h: 1
+    pad_w: 1
+    kernel_h: 3
+    kernel_w: 3
+    stride_h: 1
+    stride_w: 1
+  }
+}
+layer {
+  name: "block_4a_bn_2"
+  type: "Scale"
+  bottom: "block_4a_conv_2"
+  top: "block_4a_bn_2"
+  scale_param {
+    axis: 1
+    bias_term: true
+  }
+}
+layer {
+  name: "add_4"
+  type: "Eltwise"
+  bottom: "block_4a_bn_2"
+  bottom: "block_4a_bn_shortcut"
+  top: "add_4"
+  eltwise_param {
+    operation: SUM
+  }
+}
+layer {
+  name: "activation_9/Relu"
+  type: "ReLU"
+  bottom: "add_4"
+  top: "activation_9/Relu"
+}
+layer {
+  name: "conv2d_bbox"
+  type: "Convolution"
+  bottom: "activation_9/Relu"
+  top: "bboxes"
+  convolution_param {
+    num_output: 16
+    pad_h: 0
+    pad_w: 0
+    kernel_h: 1
+    kernel_w: 1
+    stride_h: 1
+    stride_w: 1
+  }
+}
+layer {
+  name: "conv2d_cov"
+  type: "Convolution"
+  bottom: "activation_9/Relu"
+  top: "conv2d_cov"
+  convolution_param {
+    num_output: 4
+    pad_h: 0
+    pad_w: 0
+    kernel_h: 1
+    kernel_w: 1
+    stride_h: 1
+    stride_w: 1
+  }
+}
+layer {
+  name: "conv2d_cov/Sigmoid"
+  type: "Sigmoid"
+  bottom: "conv2d_cov"
+  top: "coverage"
+}
+layer {
+  name: "bbox_mask"
+  type: "Eltwise"
+  bottom: "bboxes"
+  bottom: "coverage-block"
+  top: "bboxes-masked"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  eltwise_param {
+    operation: PROD
+  }
+}
+layer {
+  name: "bbox-norm"
+  type: "Eltwise"
+  bottom: "bboxes-masked"
+  bottom: "size-block"
+  top: "bboxes-masked-norm"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  eltwise_param {
+    operation: PROD
+  }
+}
+layer {
+  name: "bbox-obj-norm"
+  type: "Eltwise"
+  bottom: "bboxes-masked-norm"
+  bottom: "obj-block"
+  top: "bboxes-obj-masked-norm"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  eltwise_param {
+    operation: PROD
+  }
+}
+layer {
+  name: "bbox_loss"
+  type: "L1Loss"
+  bottom: "bboxes-obj-masked-norm"
+  bottom: "bbox-obj-label-norm"
+  top: "loss_bbox"
+  loss_weight: 2.0
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+}
+layer {
+  name: "coverage_loss"
+  type: "EuclideanLoss"
+  bottom: "coverage"
+  bottom: "coverage-label"
+  top: "loss_coverage"
+  include {
+    phase: TRAIN
+  }
+  include {
+    phase: TEST
+    stage: "val"
+  }
+}
+layer {
+  name: "cluster"
+  type: "Python"
+  bottom: "coverage"
+  bottom: "bboxes"
+  top: "bbox-list-class0"
+  top: "bbox-list-class1"
+  top: "bbox-list-class2"
+  top: "bbox-list-class3"
+  include {
+    phase: TEST
+  }
+  python_param {
+    module: "caffe.layers.detectnet.clustering"
+    layer: "ClusterDetections"
+    param_str: "480, 272, 16, 0.6, 3, 0.02, 22, 4"
+  }
+}
+layer {
+  name: "cluster_gt"
+  type: "Python"
+  bottom: "coverage-label"
+  bottom: "bbox-label"
+  top: "bbox-list-label-class0"
+  top: "bbox-list-label-class1"
+  top: "bbox-list-label-class2"
+  top: "bbox-list-label-class3"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.clustering"
+    layer: "ClusterGroundtruth"
+    param_str: "480, 272, 16, 4"
+  }
+}
+layer {
+  name: "score-class0"
+  type: "Python"
+  bottom: "bbox-list-label-class0"
+  bottom: "bbox-list-class0"
+  top: "bbox-list-scored-class0"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.mean_ap"
+    layer: "ScoreDetections"
+  }
+}
+layer {
+  name: "mAP-class0"
+  type: "Python"
+  bottom: "bbox-list-scored-class0"
+  top: "mAP-class0"
+  top: "precision-class0"
+  top: "recall-class0"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.mean_ap"
+    layer: "mAP"
+    param_str: "480, 272, 16"
+  }
+}
+layer {
+  name: "score-class1"
+  type: "Python"
+  bottom: "bbox-list-label-class1"
+  bottom: "bbox-list-class1"
+  top: "bbox-list-scored-class1"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.mean_ap"
+    layer: "ScoreDetections"
+  }
+}
+layer {
+  name: "mAP-class1"
+  type: "Python"
+  bottom: "bbox-list-scored-class1"
+  top: "mAP-class1"
+  top: "precision-class1"
+  top: "recall-class1"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.mean_ap"
+    layer: "mAP"
+    param_str: "480, 272, 16"
+  }
+}
+layer {
+  name: "score-class2"
+  type: "Python"
+  bottom: "bbox-list-label-class2"
+  bottom: "bbox-list-class2"
+  top: "bbox-list-scored-class2"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.mean_ap"
+    layer: "ScoreDetections"
+  }
+}
+layer {
+  name: "mAP-class2"
+  type: "Python"
+  bottom: "bbox-list-scored-class2"
+  top: "mAP-class2"
+  top: "precision-class2"
+  top: "recall-class2"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.mean_ap"
+    layer: "mAP"
+    param_str: "480, 272, 16"
+  }
+}
+layer {
+  name: "score-class3"
+  type: "Python"
+  bottom: "bbox-list-label-class3"
+  bottom: "bbox-list-class3"
+  top: "bbox-list-scored-class3"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.mean_ap"
+    layer: "ScoreDetections"
+  }
+}
+layer {
+  name: "mAP-class3"
+  type: "Python"
+  bottom: "bbox-list-scored-class3"
+  top: "mAP-class3"
+  top: "precision-class3"
+  top: "recall-class3"
+  include {
+    phase: TEST
+    stage: "val"
+  }
+  python_param {
+    module: "caffe.layers.detectnet.mean_ap"
+    layer: "mAP"
+    param_str: "480, 272, 16"
+  }
+}
